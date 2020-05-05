@@ -156,18 +156,14 @@ class MikrotikDriver(NetworkDriver):
         for interface in new_interfaces:
 
             ifname = interface.get('name')
-            description = interface.get('comment')
-            is_enabled = interface.get('state') not in ('D',)
-            is_up = interface.get('state') in ('R',)
-            mac_address = interface.get('mac-address')
 
             interfaces.update({
                 ifname: {
-                    'description': description,
-                    'is_enabled': is_enabled,
-                    'is_up': is_up,
+                    'description': interface.get('comment'),
+                    'is_enabled': True if not 'X' in interface.get('_flags') else False,
+                    'is_up': True if not 'R' in interface.get('_flags') else False,
                     'last_flapped': -1.0,
-                    'mac_address': mac_address,
+                    'mac_address': napalm.base.helpers.mac(interface.get('mac-address')),
                     'speed': -1.0
                 }
             })
@@ -481,3 +477,48 @@ class MikrotikDriver(NetworkDriver):
             'community': community,
             'chassis_id': ''
         }
+
+
+    def get_mac_address_table(self):
+        """
+        Return the MAC address table.
+        Sample output:
+        [
+            {
+                "active": true,
+                "interface": "10GE1/0/1",
+                "last_move": -1.0,
+                "mac": "00:00:00:00:00:33",
+                "moves": -1,
+                "static": false,
+                "vlan": 100
+            },
+            {
+                "active": false,
+                "interface": "10GE1/0/2",
+                "last_move": -1.0,
+                "mac": "00:00:00:00:00:01",
+                "moves": -1,
+                "static": true,
+                "vlan": 200
+            }
+        ]
+        """
+
+        mac_address_table = []
+        command = '/interface bridge host print terse'
+
+        output = self._send_command(command)
+
+        for host in parse_terse_output(output):
+            mac_address_table.append({
+                'mac': napalm.base.helpers.mac(host.get('mac-address')),
+                'interface': host.get('interface'),
+                'vlan': -1,
+                'static': True if not 'D' in host.get('_flags') else False,
+                'active': True if not 'X' in host.get('_flags') else False,
+                'moves': -1,
+                'last_move': -1.0
+            })
+
+        return mac_address_table
