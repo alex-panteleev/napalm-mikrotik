@@ -27,6 +27,7 @@ from napalm_mikrotik.utils import (
     parse_terse_output,
 )
 
+
 class MikrotikDriver(NetworkDriver):
 
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
@@ -118,9 +119,8 @@ class MikrotikDriver(NetworkDriver):
         """
         return "\n".join(filter(len, output.split('\n')))
 
-
-
     # ok
+
     def is_alive(self):
         """ Returns a flag with the state of the connection."""
         if self.device is None:
@@ -202,10 +202,10 @@ class MikrotikDriver(NetworkDriver):
                 if not hostname:
                     hostname = lldp_entry["remote_chassis_id"]
                 lldp[interface].append({
-                    "port": lldp_entry["remote_port"], 
+                    "port": lldp_entry["remote_port"],
                     "hostname": hostname
                 })
-        
+
         return lldp
 
     def get_lldp_neighbors_detail(self, interface=""):
@@ -310,7 +310,6 @@ class MikrotikDriver(NetworkDriver):
 
         system_health = self._send_command('/system health print')
         system_resources = self._send_command('/system resource print')
-       
 
         for key, value in parse_output(system_health).items():
             if 'fan' in key:
@@ -328,8 +327,7 @@ class MikrotikDriver(NetworkDriver):
             if 'psu' in key and 'voltage' in key:
                 environment.setdefault('power', {}).setdefault(re.sub(r'psu(\d+)?.*', r'psu\1', key), {
                     'status': True,
-                    })
-
+                })
 
         resources = parse_output(system_resources)
 
@@ -515,7 +513,6 @@ class MikrotikDriver(NetworkDriver):
             'community': community,
             'chassis_id': ''
         }
-
 
     def get_mac_address_table(self):
         """
