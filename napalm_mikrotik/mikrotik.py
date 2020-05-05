@@ -147,13 +147,18 @@ class MikrotikDriver(NetworkDriver):
 
             ifname = interface.get('name')
 
+            if interface.get('mac-address'):
+                mac_address = cast_mac(interface.get('mac-address'))
+            else:
+                mac_address + ''
+
             interfaces.update({
                 ifname: {
                     'description': interface.get('comment'),
                     'is_enabled': True if 'X' not in interface.get('_flags') else False,
                     'is_up': True if 'R' not in interface.get('_flags') else False,
                     'last_flapped': -1.0,
-                    'mac_address': cast_mac(interface.get('mac-address')),
+                    'mac_address': mac_address,
                     'speed': -1.0
                 }
             })
@@ -323,7 +328,7 @@ class MikrotikDriver(NetworkDriver):
 
         if resources.get('cpu-load'):
             environment.setdefault('cpu', {}).setdefault(
-                '0', {'%usage': value.replace('%', resources.get('cpu-load'))})
+                '0', {'%usage': resources.get('cpu-load').replace('%','') })
 
         return environment
 
