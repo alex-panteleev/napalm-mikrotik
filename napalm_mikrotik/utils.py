@@ -6,7 +6,7 @@ from napalm.base.helpers import (
 
 
 _TERSE_STATE = r"""
-        \s+(?P<index>\d+)
+        \s*(?P<index>\d+)
         \s*(?P<state>[A-Z]*)\s*
         """
 
@@ -90,8 +90,8 @@ def parse_terse_output(output):
         mo = TERSE_STATE_RE.search(line)
         if mo:
             index, state = mo.group('index', 'state')
-            new_item['index'] = int(index)
-            new_item['state'] = set(state)
+            new_item['_index'] = int(index)
+            new_item['_flags'] = tuple(state)
 
         for item in line.split(' '):
             mo = TERSE_PAIR_RE.match(item)
