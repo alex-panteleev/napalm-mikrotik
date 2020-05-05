@@ -1,10 +1,5 @@
 import re
 
-from napalm.base.helpers import (
-    ip as cast_ip,
-)
-
-
 _TERSE_STATE = r"""
         \s*(?P<index>\d+)
         \s*(?P<state>[A-Z]*)\s*
@@ -49,23 +44,6 @@ def to_seconds(time_format):
     seconds += (weeks * 604800)
 
     return seconds
-
-
-def iface_addresses(rows, ifname):
-    '''
-    Return every found address and prefix length for given interface.
-
-    example:
-        {
-        '192.168.1.1':
-            {'prefix_length': 24}
-        }
-    '''
-    found = (row['address'].split('/', 1)
-             for row in rows if row['interface'] == ifname)
-    pairs = ((cast_ip(address), int(prefix_length))
-             for address, prefix_length in found)
-    return dict((address, dict(prefix_length=length)) for address, length in pairs)
 
 
 def parse_output(output):

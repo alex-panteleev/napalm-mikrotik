@@ -4,25 +4,21 @@ from __future__ import unicode_literals
 
 import re
 import socket
-from collections import defaultdict
 
 # Import NAPALM base
 from napalm.base import NetworkDriver
 import napalm.base.utils.string_parsers
-import napalm.base.constants as C
 from napalm.base.helpers import ip as cast_ip
 from napalm.base.helpers import mac as cast_mac
 
 # Import NAPALM exceptions
 from napalm.base.exceptions import (
-    ConnectionException,
     ConnectionClosedException,
 )
 
 # Import local modules
 from napalm_mikrotik.utils import (
     to_seconds,
-    iface_addresses,
     parse_output,
     parse_terse_output,
 )
@@ -126,19 +122,13 @@ class MikrotikDriver(NetworkDriver):
         if self.device is None:
             return {'is_alive': False}
         try:
-            if self.transport == 'telnet':
-                # Try sending IAC + NOP (IAC is telnet way of sending command
-                # IAC = Interpret as Command (it comes before the NOP)
-                self.device.write_channel(telnetlib.IAC + telnetlib.NOP)
-                return {'is_alive': True}
-            else:
-                # SSH
-                # Try sending ASCII null byte to maintain the connection alive
-                null = chr(0)
-                self.device.write_channel(null)
-                return {
-                    'is_alive': self.device.remote_conn.transport.is_active()
-                }
+            # SSH
+            # Try sending ASCII null byte to maintain the connection alive
+            null = chr(0)
+            self.device.write_channel(null)
+            return {
+                'is_alive': self.device.remote_conn.transport.is_active()
+            }
         except (socket.error, EOFError, OSError):
             # If unable to send, we can tell for sure that the connection is unusable
             return {'is_alive': False}
@@ -160,10 +150,10 @@ class MikrotikDriver(NetworkDriver):
             interfaces.update({
                 ifname: {
                     'description': interface.get('comment'),
-                    'is_enabled': True if not 'X' in interface.get('_flags') else False,
-                    'is_up': True if not 'R' in interface.get('_flags') else False,
+                    'is_enabled': True if 'X' not in interface.get('_flags') else False,
+                    'is_up': True if 'R' not in interface.get('_flags') else False,
                     'last_flapped': -1.0,
-                    'mac_address': napalm.base.helpers.mac(interface.get('mac-address')),
+                    'mac_address': cast_mac(interface.get('mac-address')),
                     'speed': -1.0
                 }
             })
@@ -409,8 +399,8 @@ class MikrotikDriver(NetworkDriver):
 
             interfaces_ip.setdefault(interface, {}) \
                 .setdefault('ipv4', {}) \
-                .setdefault(address, {}) \
-                .setdefault('prefix_length', mask)
+                .setdefault(cast_ip(address), {}) \
+                .setdefault('prefix_length', int(mask))
 
         return interfaces_ip
 
@@ -448,7 +438,7 @@ class MikrotikDriver(NetworkDriver):
             if arp.get('mac-address'):
                 arp_table.append({
                     'interface': arp.get('interface'),
-                    'mac': napalm.base.helpers.mac(arp.get('mac-address')),
+                    'mac': cast_mac(arp.get('mac-address')),
                     'ip': arp.get('address'),
                     'age': -1.0,
                 })
@@ -547,11 +537,11 @@ class MikrotikDriver(NetworkDriver):
 
         for host in parse_terse_output(output):
             mac_address_table.append({
-                'mac': napalm.base.helpers.mac(host.get('mac-address')),
+                'mac': cast_mac(host.get('mac-address')),
                 'interface': host.get('interface'),
                 'vlan': -1,
-                'static': True if not 'D' in host.get('_flags') else False,
-                'active': True if not 'X' in host.get('_flags') else False,
+                'static': True if 'D' not in host.get('_flags') else False,
+                'active': True if 'X' not in host.get('_flags') else False,
                 'moves': -1,
                 'last_move': -1.0
             })
