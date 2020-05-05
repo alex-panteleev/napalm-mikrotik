@@ -170,6 +170,44 @@ class MikrotikDriver(NetworkDriver):
 
         return interfaces
 
+    def get_lldp_neighbors(self):
+        """
+        Return LLDP neighbors simple info.
+        Sample output:
+        {
+            'XGE0/0/1': [
+                {
+                    'hostname': 'huawei-S5720-01',
+                    'port': 'XGE0/0/1'
+                },
+            'XGE0/0/3': [
+                {
+                    'hostname': 'huawei-S5720-POE',
+                    'port': 'XGE0/0/1'
+                },
+            'XGE0/0/46': [
+                {
+                    'hostname': 'Aruba-7210-M',
+                    'port': 'GE0/0/2'
+                },
+            ]
+        }
+        """
+        lldp = {}
+        neighbors_detail = self.get_lldp_neighbors_detail()
+        for interface, entries in neighbors_detail.items():
+            lldp[interface] = []
+            for lldp_entry in entries:
+                hostname = lldp_entry["remote_system_name"]
+                if not hostname:
+                    hostname = lldp_entry["remote_chassis_id"]
+                lldp[interface].append({
+                    "port": lldp_entry["remote_port"], 
+                    "hostname": hostname
+                })
+        
+        return lldp
+
     def get_lldp_neighbors_detail(self, interface=""):
         pass
         """
