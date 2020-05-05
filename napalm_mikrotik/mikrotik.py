@@ -2,6 +2,8 @@
 
 from __future__ import unicode_literals
 
+import re
+import socket
 from collections import defaultdict
 
 # Import NAPALM base
@@ -10,14 +12,20 @@ import napalm.base.utils.string_parsers
 import napalm.base.constants as C
 from napalm.base.helpers import ip as cast_ip
 from napalm.base.helpers import mac as cast_mac
-from napalm.base.exceptions import ConnectionException
+
+# Import NAPALM exceptions
+from napalm.base.exceptions import (
+    ConnectionException,
+    ConnectionClosedException,
+)
 
 # Import local modules
-from napalm_mikrotik.utils import to_seconds
-from napalm_mikrotik.utils import iface_addresses
-from napalm_mikrotik.utils import parse_output
-from napalm_mikrotik.utils import parse_terse_output
-
+from napalm_mikrotik.utils import (
+    to_seconds,
+    iface_addresses,
+    parse_output,
+    parse_terse_output,
+)
 
 class MikrotikDriver(NetworkDriver):
 
@@ -86,6 +94,32 @@ class MikrotikDriver(NetworkDriver):
 
         self._netmiko_close()
 
+    def _send_command(self, command):
+        """Wrapper for self.device.send.command().
+        If command is a list will iterate through commands until valid command.
+        """
+        try:
+            if isinstance(command, list):
+                for cmd in command:
+                    output = self.device.send_command(cmd)
+                    if "bad command" not in output:
+                        break
+            else:
+                output = self.device.send_command(command)
+            return self._send_command_postprocess(output)
+        except (socket.error, EOFError) as e:
+            raise ConnectionClosedException(str(e))
+
+    @staticmethod
+    def _send_command_postprocess(output):
+        """
+        Cleanup actions on send_command() for NAPALM getters.
+        Remove "start/end blank lines"
+        """
+        return "\n".join(filter(len, output.split('\n')))
+
+
+
     # ok
     def is_alive(self):
         """ Returns a flag with the state of the connection."""
@@ -114,31 +148,18 @@ class MikrotikDriver(NetworkDriver):
         Get interface details (last_flapped is not implemented).
         """
         interfaces = {}
-        output = self.device.send_command('/interface print terse')
+        output = self._send_command('/interface print terse')
         if not output:
             return {}
 
-        new_interfaces = output.strip().split('\n')
-        for interface_line in new_interfaces:
-            d = dict()
-            mo = TERSE_STATE_RE.search(interface_line)
-            if mo:
-                index, state = mo.group('index', 'state')
-                d['index'] = int(index)
-                d['state'] = ROS_STATES.get(state)
+        new_interfaces = parse_terse_output(output)
+        for interface in new_interfaces:
 
-            for item in interface_line.split(" "):
-                mo = TERSE_PAIR_RE.match(item)
-                if mo:
-                    key, sep, value = mo.group('key', 'sep', 'value')
-                    d[key] = value
-
-            ifname = d.get('name')
-            description = d.get('comment')
-            is_enabled = d.get('state') not in ('D',)
-            is_up = d.get('state') in ('R',)
-            mac_address = d.get('mac-address')
-            speed = '100'
+            ifname = interface.get('name')
+            description = interface.get('comment')
+            is_enabled = interface.get('state') not in ('D',)
+            is_up = interface.get('state') in ('R',)
+            mac_address = interface.get('mac-address')
 
             interfaces.update({
                 ifname: {
@@ -147,7 +168,8 @@ class MikrotikDriver(NetworkDriver):
                     'is_up': is_up,
                     'last_flapped': -1.0,
                     'mac_address': mac_address,
-                    'speed': speed}
+                    'speed': -1.0
+                }
             })
 
         return interfaces
@@ -174,27 +196,14 @@ class MikrotikDriver(NetworkDriver):
         """
         lldp_neighbors = {}
 
-        output = self.device.send_command('/ip neighbor print terse')
+        output = self._send_command('/ip neighbor print terse')
         if not output:
             return {}
 
-        neighbors = output.strip().split('\n')
+        neighbors = parse_terse_output(output)
         for neighbor in neighbors:
 
-            d = dict()
-            mo = TERSE_STATE_RE.search(neighbor)
-            if mo:
-                index, state = mo.group('index', 'state')
-                d['index'] = int(index)
-                d['state'] = ROS_STATES.get(state)
-
-            for item in neighbor.split(" "):
-                mo = TERSE_PAIR_RE.match(item)
-                if mo:
-                    key, sep, value = mo.group('key', 'sep', 'value')
-                    d[key] = value
-
-            ifname = d.get('interface')
+            ifname = neighbor.get('interface')
 
             if not lldp_neighbors.get(ifname):
                 lldp_neighbors[ifname] = list()
@@ -202,15 +211,13 @@ class MikrotikDriver(NetworkDriver):
             lldp_neighbors[ifname].append({
                 'parent_interface': ifname,
 
-                'remote_system_name': d.get('identity'),
-                'remote_port': d.get('interface-name'),
-                'remote_chassis_id': d.get('mac-address'),
+                'remote_system_name': neighbor.get('identity'),
+                'remote_port': neighbor.get('interface-name'),
+                'remote_chassis_id': neighbor.get('mac-address'),
 
-                'remote_system_description': d.get('platform'),
-                'remote_system_capab': d.get('system-caps'),
-                'remote_system_enable_capab': d.get('system-caps-enabled'),
-
-
+                'remote_system_description': neighbor.get('platform'),
+                'remote_system_capab': neighbor.get('system-caps'),
+                'remote_system_enable_capab': neighbor.get('system-caps-enabled'),
             })
 
         return lldp_neighbors
@@ -219,19 +226,16 @@ class MikrotikDriver(NetworkDriver):
         """
         Get config from device.
         Returns the running configuration as dictionary.
-        The candidate and startup are always empty string for now,
-        since CE does not support candidate configuration.
+        The candidate and startup are always empty string for now
         """
-        config = {
+
+        running_config = self._send_command('/export')
+
+        return {
             'startup': '',
-            'running': '',
+            'running': running_config,
             'candidate': ''
         }
-
-        output = self.device.send_command('/export')
-        config['startup'] = config['running'] = output
-
-        return config
 
     def get_environment(self):
         """
@@ -270,50 +274,43 @@ class MikrotikDriver(NetworkDriver):
         """
         environment = {}
 
-        system_health = self.device.send_command('/system health print')
+        system_health = self._send_command('/system health print')
+        system_resources = self._send_command('/system resource print')
+       
 
-        for health in system_health.strip().splitlines():
-            mo = TERSE_PAIR_RE.match(health)
-            if mo:
-                key, sep, value = mo.group('key', 'sep', 'value')
-                print(key, sep, value)
+        for key, value in parse_output(system_health).items():
+            if 'fan' in key:
+                environment.setdefault('fan', {}).setdefault(re.sub(r'(fan\d+).*', r'\1', key), {
+                    'status': True
+                })
 
-                if 'fan' in key:
-                    environment.setdefault('fan', {}).setdefault(re.sub(r'(fan\d+).*', r'\1', key), {
-                        'status': True
+            if 'temperature' in key:
+                environment.setdefault('temperature', {}).setdefault(re.sub(r'(\w+)-temperature(\d+)?.*', r'\1\2', key), {
+                    'temperature': float(value.replace('C', '')),
+                    'is_alert': False,
+                    'is_critical': False,
+                })
+
+            if 'psu' in key and 'voltage' in key:
+                environment.setdefault('power', {}).setdefault(re.sub(r'psu(\d+)?.*', r'psu\1', key), {
+                    'status': True,
                     })
 
-                if 'temperature' in key:
-                    environment.setdefault('temperature', {}).setdefault(re.sub(r'(\w+)-temperature(\d+)?.*', r'\1\2', key), {
-                        'temperature': float(value.replace('C', '')),
-                        'is_alert': False,
-                        'is_critical': False,
-                    })
 
-                if 'psu' in key and 'voltage' in key:
-                    environment.setdefault('power', {}).setdefault(re.sub(r'psu(\d+)?.*', r'psu\1', key), {
-                        'status': True,
-                    })
+        resources = parse_output(system_resources)
 
-        resources = self.device.send_command('/system resource print')
-        for resource in resources.strip().splitlines():
-            mo = TERSE_PAIR_RE.match(resource)
-            if mo:
-                key, sep, value = mo.group('key', 'sep', 'value')
-                print(key, sep, value)
-
-                if key == 'cpu-load':
-                    environment.setdefault('cpu', {}).setdefault(
-                        '0', {'%usage': value.replace('%', '')})
+        if resources.get('cpu-load'):
+            environment.setdefault('cpu', {}).setdefault(
+                '0', {'%usage': value.replace('%', resources.get('cpu-load'))})
 
         return environment
 
     def get_facts(self):
-        system_resource_output = self.device.send_command(
+        system_resource_output = self._send_command(
             '/system resource print')
-        system_identity_output = self.device.send_command(
+        system_identity_output = self._send_command(
             '/system identity print')
-        system_routerboard_output = self.device.send_command(
+        system_routerboard_output = self._send_command(
             '/system routerboard print')
 
         identity = parse_output(system_identity_output)
@@ -368,7 +365,7 @@ class MikrotikDriver(NetworkDriver):
         """
 
         interfaces_ip = dict()
-        ip_address_output_v4 = self.device.send_command(
+        ip_address_output_v4 = self._send_command(
             '/ip address print terse')
 
         ip_addresses = parse_terse_output(ip_address_output_v4)
@@ -411,7 +408,7 @@ class MikrotikDriver(NetworkDriver):
         """
 
         arp_table = []
-        output = self.device.send_command('/ip arp print terse')
+        output = self._send_command('/ip arp print terse')
 
         arps = parse_terse_output(output)
 
@@ -463,8 +460,8 @@ class MikrotikDriver(NetworkDriver):
             }
         """
 
-        snmp_output = self.device.send_command('/snmp print')
-        snmp_community_output = self.device.send_command(
+        snmp_output = self._send_command('/snmp print')
+        snmp_community_output = self._send_command(
             '/snmp community print terse')
 
         snmp = parse_output(snmp_output)
