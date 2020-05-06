@@ -11,9 +11,13 @@ _TERSE_PAIR = r"""
         (?P<value>.*)$
         """
 
-TERSE_STATE_RE = re.compile(_TERSE_STATE, re.VERBOSE)
-TERSE_PAIR_RE = re.compile(_TERSE_PAIR, re.VERBOSE)
+_UNIT_SPLIT = r"(?P<value>[\d\.]+)(?P<unit>\w+)"
+UNITS = ['B','KiB', 'MiB', 'GiB', 'TiB']
 
+
+TERSE_STATE_RE = re.compile(_TERSE_STATE, re.VERBOSE)
+TERSE_PAIR_RE  = re.compile(_TERSE_PAIR, re.VERBOSE)
+UNIT_SPLIT_RE  = re.compile(_UNIT_SPLIT, re.VERBOSE)
 
 def to_seconds(time_format):
     seconds = minutes = hours = days = weeks = 0
@@ -45,6 +49,27 @@ def to_seconds(time_format):
 
     return seconds
 
+def bytes_to_human(value):
+    for unit in UNITS:
+        if abs(value) < 1024.0:
+            return "%3.1f%s" % (value, unit)
+        value /= 1024.0
+    else:
+        return "%3.1f%s" % (value, UNITS[-1])
+
+
+def human_to_bytes(value):
+    result = .0
+
+    mo = UNIT_SPLIT_RE.match(value)
+    if mo:
+        value, unit = mo.group('value', 'unit')
+
+        result = float(value)
+        if unit in UNITS:
+            result = result * (1 << 10 * UNITS.index(unit))
+     
+    return result
 
 def parse_output(output):
     result = dict()

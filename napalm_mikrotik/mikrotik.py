@@ -19,6 +19,8 @@ from napalm.base.exceptions import (
 # Import local modules
 from napalm_mikrotik.utils import (
     to_seconds,
+    human_to_bytes,
+    bytes_to_human,
     parse_output,
     parse_terse_output,
 )
@@ -305,16 +307,17 @@ class MikrotikDriver(NetworkDriver):
 
         system_health = self._send_command('/system health print')
         system_resources = self._send_command('/system resource print')
+        system_resources_cpu = self._send_command('/system resource cpu print terse')
 
         for key, value in parse_output(system_health).items():
             if 'fan' in key:
-                environment.setdefault('fan', {}).setdefault(re.sub(r'(fan\d+).*', r'\1', key), {
+                environment.setdefault('fans', {}).setdefault(re.sub(r'(fan\d+).*', r'\1', key), {
                     'status': True
                 })
 
             if 'temperature' in key:
                 environment.setdefault('temperature', {}).setdefault(re.sub(r'(\w+)-temperature(\d+)?.*', r'\1\2', key), {
-                    'temperature': float(value.replace('C', '')),
+                    'temperature': float(value.rstrip('C')),
                     'is_alert': False,
                     'is_critical': False,
                 })
@@ -324,11 +327,24 @@ class MikrotikDriver(NetworkDriver):
                     'status': True,
                 })
 
+        cpus = parse_terse_output(system_resources_cpu)
+        for cpu in cpus:
+            environment.setdefault('cpu', {}).setdefault(
+                str(cpu.get('_index')),  {'%usage': cpu.get('load').rstrip('%')})
+
+        # if resources.get('cpu-load'):
+        #     environment.setdefault('cpu', {}).setdefault(
+        #         '0', {'%usage': resources.get('cpu-load').rstrip('%') })
+
         resources = parse_output(system_resources)
 
-        if resources.get('cpu-load'):
-            environment.setdefault('cpu', {}).setdefault(
-                '0', {'%usage': resources.get('cpu-load').replace('%','') })
+        available_ram = human_to_bytes(resources.get('total-memory'))
+        free_ram = human_to_bytes(resources.get('free-memory'))
+
+        environment.setdefault('memory',{
+            'available_ram':  bytes_to_human(available_ram),
+            'used_ram': bytes_to_human(available_ram - free_ram)
+        })
 
         return environment
 
