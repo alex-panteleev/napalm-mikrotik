@@ -68,8 +68,6 @@ class MikrotikDriver(NetworkDriver):
         # }
         self.netmiko_optional_args.update(optional_args)
 
-        print("*" * 80, self.netmiko_optional_args)
-
         self.transport = optional_args.get('transport', 'ssh')
         self.port = optional_args.get('port', 22)
 
@@ -138,12 +136,18 @@ class MikrotikDriver(NetworkDriver):
             # If unable to send, we can tell for sure that the connection is unusable
             return {'is_alive': False}
 
-    def get_interfaces(self):
+    def get_interfaces(self, dynamic=False):
         """
         Get interface details (last_flapped is not implemented).
         """
         interfaces = {}
-        output = self._send_command('/interface print terse')
+        command = '/interface print terse'
+
+        if not dynamic:
+            command += ' where !dynamic'
+
+        output = self._send_command(command)
+
         if not output:
             return {}
 
@@ -160,8 +164,8 @@ class MikrotikDriver(NetworkDriver):
             interfaces.update({
                 ifname: {
                     'description': interface.get('comment'),
-                    'is_enabled': True if 'X' not in interface.get('_flags') else False,
-                    'is_up': True if 'R' not in interface.get('_flags') else False,
+                    'is_enabled': True if interface.get('_flags') and 'X' not in interface.get('_flags') else False,
+                    'is_up': True if interface.get('_flags') and 'R' not in interface.get('_flags') else False,
                     'last_flapped': -1.0,
                     'mac_address': mac_address,
                     'speed': -1.0
@@ -411,13 +415,13 @@ class MikrotikDriver(NetworkDriver):
         """
 
         interfaces_ip = dict()
-        ip_address_output_v4 = self._send_command(
-            '/ip address print terse')
+        command = '/ip address print terse'
+
+        ip_address_output_v4 = self._send_command(command)
 
         ip_addresses = parse_terse_output(ip_address_output_v4)
 
         for ip_address in ip_addresses:
-
             interface = ip_address.get('interface')
             address, mask = ip_address.get('address').split('/')
 
