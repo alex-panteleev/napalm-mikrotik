@@ -89,19 +89,21 @@ def parse_terse_output(output):
 
     for line in output.strip().splitlines():
         new_item = {}
+        items = re.split(r'([\w-]+)=', line)
 
-        mo = TERSE_STATE_RE.search(line)
+        first = items.pop(0)
+        mo = TERSE_STATE_RE.search(first)
         if mo:
             index, state = mo.group('index', 'state')
             new_item['_index'] = int(index)
             new_item['_flags'] = tuple(state)
 
-        for item in line.split(' '):
-            mo = TERSE_PAIR_RE.match(item)
-            if mo:
-                key, sep, value = mo.group('key', 'sep', 'value')
-                new_item.setdefault(key, value)
-
+        while len(items) > 1:
+            key   = items.pop(0).strip()
+            value = items.pop(0).strip()
+            new_item.setdefault(key, value)
         result.append(new_item)
 
     return result
+
+
