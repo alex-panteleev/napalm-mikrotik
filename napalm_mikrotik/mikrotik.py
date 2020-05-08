@@ -62,10 +62,13 @@ class MikrotikDriver(NetworkDriver):
         }
 
         # Build dict of any optional Netmiko args
-        self.netmiko_optional_args = {
-            k: optional_args.get(k, v)
-            for k, v in netmiko_argument_map.items()
-        }
+        self.netmiko_optional_args = netmiko_argument_map
+        #     k: optional_args.get(k, v)
+        #     for k, v in netmiko_argument_map.items()
+        # }
+        self.netmiko_optional_args.update(optional_args)
+
+        print("*" * 80, self.netmiko_optional_args)
 
         self.transport = optional_args.get('transport', 'ssh')
         self.port = optional_args.get('port', 22)
@@ -152,7 +155,7 @@ class MikrotikDriver(NetworkDriver):
             if interface.get('mac-address'):
                 mac_address = cast_mac(interface.get('mac-address'))
             else:
-                mac_address + ''
+                mac_address = ''
 
             interfaces.update({
                 ifname: {
