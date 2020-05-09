@@ -575,3 +575,29 @@ class MikrotikDriver(NetworkDriver):
             })
 
         return mac_address_table
+
+
+    def get_users(self):
+        """
+        Returns a dictionary with the configured users.
+        The keys of the main dictionary represents the username.
+        The values represent the details of the user,
+        represented by the following keys:
+            * level (int)
+            * password (str)
+            * sshkeys (list)
+        *Note: sshkeys on ios is the ssh key fingerprint
+        The level is an integer between 0 and 15, where 0 is the
+        lowest access and 15 represents full access to the device.
+        """
+
+        users = {}
+        command = "/user print terse"
+        output = self._send_command(command)
+
+        for user in parse_terse_output(output):
+            users[user.get('name')] = {
+                "group": user.get('group')
+            }
+
+        return users
