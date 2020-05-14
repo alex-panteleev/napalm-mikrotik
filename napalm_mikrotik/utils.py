@@ -12,12 +12,21 @@ _TERSE_PAIR = r"""
         """
 
 _UNIT_SPLIT = r"(?P<value>[\d\.]+)(?P<unit>\w+)"
-UNITS = ['B','KiB', 'MiB', 'GiB', 'TiB']
+UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
 
 
 TERSE_STATE_RE = re.compile(_TERSE_STATE, re.VERBOSE)
-TERSE_PAIR_RE  = re.compile(_TERSE_PAIR, re.VERBOSE)
-UNIT_SPLIT_RE  = re.compile(_UNIT_SPLIT, re.VERBOSE)
+TERSE_PAIR_RE = re.compile(_TERSE_PAIR, re.VERBOSE)
+UNIT_SPLIT_RE = re.compile(_UNIT_SPLIT, re.VERBOSE)
+
+EMPTY_LINE_RE = re.compile(r'^$')
+START_FLAGS_RE = re.compile(r'^Flags:')
+MK_COMMENT_RE = re.compile(
+    r'^\s*(?P<index>\d+)\s*(?P<state>[A-Z]*)\s*(;;;(?P<comment>.*))$')
+MK_COMMAND_RE = re.compile(r'([\w-]+)=')
+MK_COUNTER_RE = re.compile(r'[\d\s]+')
+MK_STRING_RE = re.compile(r'^"(.*)"$')
+
 
 def to_seconds(time_format):
     seconds = minutes = hours = days = weeks = 0
@@ -49,6 +58,7 @@ def to_seconds(time_format):
 
     return seconds
 
+
 def bytes_to_human(value):
     for unit in UNITS:
         if abs(value) < 1024.0:
@@ -68,8 +78,9 @@ def human_to_bytes(value):
         result = float(value)
         if unit in UNITS:
             result = result * (1 << 10 * UNITS.index(unit))
-     
+
     return result
+
 
 def parse_output(output):
     result = dict()
@@ -89,21 +100,74 @@ def parse_terse_output(output):
 
     for line in output.strip().splitlines():
         new_item = {}
-        items = re.split(r'([\w-]+)=', line)
+        items = MK_COMMAND_RE.split(line)
 
         first = items.pop(0)
         mo = TERSE_STATE_RE.search(first)
         if mo:
-            index, state = mo.group('index', 'state')
-            new_item['_index'] = int(index)
-            new_item['_flags'] = tuple(state)
+            new_item['_index'] = int(mo.group('index'))
+            new_item['_flags'] = tuple(mo.group('state'))
 
         while len(items) > 1:
-            key   = items.pop(0).strip()
+            key = items.pop(0).strip()
             value = items.pop(0).strip()
             new_item.setdefault(key, value)
+
         result.append(new_item)
 
     return result
 
 
+def parse_detail_output(output):
+    result = []
+    first_line = False
+
+    new_item = None
+    for line in output.splitlines():
+        print(line)
+        if EMPTY_LINE_RE.match(line):
+            print(1)
+            result.append(new_item)
+            new_item = {}
+            continue
+
+        if not first_line and START_FLAGS_RE.search(line):
+            first_line = True
+            continue
+
+        if not new_item:
+            new_item = {}
+
+        mo = MK_COMMENT_RE.match(line)
+        if mo:
+            if new_item:
+                result.append(new_item)
+                new_item = {}
+            new_item['_index'] = int(mo.group('index'))
+            new_item['_flags'] = tuple(mo.group('state'))
+            new_item['comment'] = mo.group('comment').strip()
+            continue
+
+        items = MK_COMMAND_RE.split(line)
+
+        first = items.pop(0)
+        mo = TERSE_STATE_RE.search(first)
+        if mo:
+            new_item['_index'] = int(mo.group('index'))
+            new_item['_flags'] = tuple(mo.group('state'))
+
+        while len(items) > 1:
+            key = items.pop(0).strip()
+            value = items.pop(0).strip()
+
+            if MK_COUNTER_RE.match(value):
+                value = int(value.replace(' ', ''))
+            elif MK_STRING_RE.match(value):
+                value = value.strip('"')
+
+            new_item.setdefault(key, value)
+
+    if new_item:
+        result.append(new_item)
+
+    return result
