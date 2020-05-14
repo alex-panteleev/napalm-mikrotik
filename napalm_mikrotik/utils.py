@@ -151,6 +151,10 @@ def parse_detail_output(output):
         first = items.pop(0)
         mo = TERSE_STATE_RE.search(first)
         if mo:
+            if new_item.get('_index'):
+                result.append(new_item)
+                new_item = {}
+
             new_item['_index'] = int(mo.group('index'))
             new_item['_flags'] = tuple(mo.group('state'))
 
