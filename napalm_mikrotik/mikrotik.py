@@ -23,6 +23,7 @@ from napalm_mikrotik.utils import (
     bytes_to_human,
     parse_output,
     parse_terse_output,
+    parse_detail_output
 )
 
 
@@ -174,6 +175,35 @@ class MikrotikDriver(NetworkDriver):
 
         return interfaces
 
+    def get_interfaces_counters(self):
+        """
+        {
+            u'ether1': {
+                'tx_multicast_packets': 699,
+                'tx_octets': 0,
+                'rx_multicast_packets': 0,
+                'rx_octets': 0,
+        },
+        """
+
+        counters = {}
+        command = '/interface ethernet print stats-detail'
+
+        output = self._send_command(command)
+        print(output)
+
+        for interface in parse_detail_output(output):
+            interface_name = interface.get('name')
+
+            counters.setdefault(interface_name, {
+                "tx_multicast_packets": interface.get('tx-multicast'),
+                "tx_octets": interface.get('tx-bytes'),
+                "rx_multicast_packets": interface.get('rx-multicast'),
+                "rx_octets": interface.get('rx-bytes'),
+            })
+
+        return counters
+
     def get_lldp_neighbors(self):
         """
         Return LLDP neighbors simple info.
@@ -314,7 +344,8 @@ class MikrotikDriver(NetworkDriver):
 
         system_health = self._send_command('/system health print')
         system_resources = self._send_command('/system resource print')
-        system_resources_cpu = self._send_command('/system resource cpu print terse')
+        system_resources_cpu = self._send_command(
+            '/system resource cpu print terse')
 
         for key, value in parse_output(system_health).items():
             if 'fan' in key:
@@ -348,7 +379,7 @@ class MikrotikDriver(NetworkDriver):
         available_ram = human_to_bytes(resources.get('total-memory'))
         free_ram = human_to_bytes(resources.get('free-memory'))
 
-        environment.setdefault('memory',{
+        environment.setdefault('memory', {
             'available_ram':  bytes_to_human(available_ram),
             'used_ram': bytes_to_human(available_ram - free_ram)
         })
@@ -575,7 +606,6 @@ class MikrotikDriver(NetworkDriver):
             })
 
         return mac_address_table
-
 
     def get_users(self):
         """
