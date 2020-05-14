@@ -124,9 +124,7 @@ def parse_detail_output(output):
 
     new_item = None
     for line in output.splitlines():
-        print(line)
         if EMPTY_LINE_RE.match(line):
-            print(1)
             result.append(new_item)
             new_item = {}
             continue
