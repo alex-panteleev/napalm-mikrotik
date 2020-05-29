@@ -154,7 +154,6 @@ def parse_detail_output(output):
             if new_item.get('_index'):
                 result.append(new_item)
                 new_item = {}
-
             new_item['_index'] = int(mo.group('index'))
             new_item['_flags'] = tuple(mo.group('state'))
 

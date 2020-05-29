@@ -46,8 +46,8 @@ class MikrotikDriver(NetworkDriver):
         if optional_args is None:
             optional_args = {}
 
-        # Netmiko possible arguments
-        netmiko_argument_map = {
+        # Build dict of any optional Netmiko args
+        self._netmiko_optional_args = {
             'port': None,
             'verbose': False,
             'global_delay_factor': 1,
@@ -62,23 +62,9 @@ class MikrotikDriver(NetworkDriver):
             'keepalive': 30
         }
 
-        # Build dict of any optional Netmiko args
-        self.netmiko_optional_args = netmiko_argument_map
-        #     k: optional_args.get(k, v)
-        #     for k, v in netmiko_argument_map.items()
-        # }
-        self.netmiko_optional_args.update(optional_args)
+        self._netmiko_optional_args.update(optional_args)
 
         self.transport = optional_args.get('transport', 'ssh')
-        self.port = optional_args.get('port', 22)
-
-        self.changed = False
-        self.loaded = False
-        self.backup_file = ''
-        self.replace = False
-        self.merge_candidate = ''
-        self.replace_file = ''
-        self.profile = ["mikrotik_routeros"]
 
     def open(self):
         """Open a connection to the device.
@@ -87,7 +73,7 @@ class MikrotikDriver(NetworkDriver):
         if self.transport == "telnet":
             device_type = "mikrotik_routeros_telnet"
         self.device = self._netmiko_open(
-            device_type, netmiko_optional_args=self.netmiko_optional_args
+            device_type, netmiko_optional_args=self._netmiko_optional_args
         )
 
     def close(self):
