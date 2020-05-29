@@ -176,8 +176,7 @@ class MikrotikDriver(NetworkDriver):
         command = '/interface ethernet print stats-detail'
 
         output = self._send_command(command)
-        print(output)
-
+        
         for interface in parse_detail_output(output):
             interface_name = interface.get('name')
 
