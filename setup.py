@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-__author__ = 'Matt Ryan <jgomez@phicus.es>'
+__author__ = 'Juan Gomez <jgomez@phicus.es>'
 
 
 with open("README.md", "r") as fh:
@@ -17,7 +17,7 @@ def parse_reqs(file_path):
 
 setup(
     name="napalm-mikrotik",
-    version="0.0.2",
+    version="0.0.4",
     packages=find_packages(),
     author="Juan Gomez",
     author_email="jgomez@phicus.es",
@@ -27,14 +27,10 @@ setup(
     classifiers=[
         'Topic :: Utilities',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Operating System :: POSIX :: Linux',
-        'Operating System :: Microsoft :: Windows',
         'Operating System :: MacOS',
     ],
     url="https://github.com/johnbarneta/napalm-mikrotik",
