@@ -43,6 +43,8 @@ class MikrotikDriver(NetworkDriver):
         self.password = password
         self.timeout = timeout
 
+        self.force_no_enable = True # disable enable mode trigger in _netmiko_open()
+
         if optional_args is None:
             optional_args = {}
 
