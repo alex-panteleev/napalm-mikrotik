@@ -9,6 +9,10 @@ from napalm.base.test.getters import BaseTestGetters, wrap_test_cases
 class TestGetter(BaseTestGetters):
 
     @wrap_test_cases
+    def test_get_config_sanitized(self, test_case):
+        raise SkipTest()
+
+    @wrap_test_cases
     def test_get_config_filtered(self, test_case):
         raise SkipTest()
 

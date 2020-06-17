@@ -1,9 +1,0 @@
-# jan/02/1970 00:00:00 by RouterOS 6.45.9
-# software id = XXXX-XXXX
-#
-# model = CCR1036-12G-4S
-# serial number = 999999X99999
-/interface wireless security-profiles
-set [ find default=yes ] supplicant-identity=MikroTik
-/ip address
-add address=192.168.88.1/24 comment=defconf interface=ether1 network=192.168.88.0

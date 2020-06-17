@@ -15,11 +15,11 @@ def read(rel_path):
         return fp.read()
 
 def parse_reqs(file_path):
-    with open(file_path, 'rt') as fobj:
-        lines = map(str.strip, fobj)
-        lines = filter(None, lines)
-        lines = filter(lambda x: x.startswith("#"), lines)
-        return tuple(lines)
+    lines = read(file_path).splitlines()
+    lines = map(str.strip, lines)
+    lines = filter(None, lines)
+    lines = filter(lambda x: x.startswith("#"), lines)
+    return tuple(lines)
 
 # ref: https://github.com/pypa/pip/blob/7ed5e12ae83ef90ac33be33555ea52f61457c1d2/setup.py#L19
 def get_version(rel_path):
@@ -56,8 +56,5 @@ setup(
     packages=find_packages(),
 
     include_package_data=True,
-    install_requires=(
-        'napalm==2.*',
-        'netmiko==2.*',
-    ),
+    install_requires=parse_reqs('requirements.txt'),
 )

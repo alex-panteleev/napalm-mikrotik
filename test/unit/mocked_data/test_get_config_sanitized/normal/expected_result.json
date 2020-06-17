@@ -1,5 +1,0 @@
-{
-    "startup": "",
-    "running": "/interface wireless security-profiles\nset [ find default=yes ] supplicant-identity=MikroTik\n/ip address\nadd address=192.168.88.1/24 comment=defconf interface=ether1 network=192.168.88.0",
-    "candidate": ""
-}
