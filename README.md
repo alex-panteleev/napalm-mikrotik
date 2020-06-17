@@ -1,6 +1,8 @@
-### Beta 
+[![Build Status](https://travis-ci.com/johnbarneta/napalm-mikrotik.svg?branch=master)](https://travis-ci.com/johnbarneta/napalm-mikrotik)
 
-No use in production environments
+# napalm-mikrotik
+
+NAPALM driver for Mikrotik devices using SSH
 
 ### Implemented getters
 
