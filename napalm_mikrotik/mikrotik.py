@@ -277,7 +277,7 @@ class MikrotikDriver(NetworkDriver):
 
         return lldp_neighbors
 
-    def get_config(self, retrieve="all", full=False):
+    def get_config(self, retrieve="all", full=False, sanitized=False):
         """
         Get config from device.
         Returns the running configuration as dictionary.
