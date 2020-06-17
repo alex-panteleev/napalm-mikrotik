@@ -1,0 +1,8 @@
+{
+    "admin" : {
+        "group": "full"
+    },
+    "user" : {
+        "group": "read"
+    }
+}
