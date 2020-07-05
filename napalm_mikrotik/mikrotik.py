@@ -287,6 +287,7 @@ class MikrotikDriver(NetworkDriver):
         command = "/export verbose" if full else "/export"
 
         running_config = self._send_command(command)
+        running_config = re.sub(r'^#.*$', "", running_config, flags=re.M)
 
         return {
             "startup": "",
