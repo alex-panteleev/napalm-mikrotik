@@ -284,12 +284,14 @@ class MikrotikDriver(NetworkDriver):
         The candidate and startup are always empty string for now
         """
 
-        running_config = self._send_command('/export')
+        command = "/export verbose" if full else "/export"
+
+        running_config = self._send_command(command)
 
         return {
-            'startup': '',
-            'running': running_config,
-            'candidate': ''
+            "startup": "",
+            "running": running_config.strip(),
+            "candidate": ""
         }
 
     def get_environment(self):
